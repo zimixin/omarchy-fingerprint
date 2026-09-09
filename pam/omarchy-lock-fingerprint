@@ -8,5 +8,5 @@
 # The lock screen (Quickshell) forks WITHOUT setuid, so the gate runs as the
 # session user with session-bus access. sudo/polkit CANNOT use this: root has
 # no access to the user's session bus.
-auth       required                    pam_exec.so quiet /home/zimixin/.local/bin/fp-pam-verify
+auth       required                    pam_exec.so quiet /usr/local/bin/fp-pam-verify
 account    include                     system-local-login
