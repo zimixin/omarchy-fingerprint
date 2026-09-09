@@ -11,9 +11,12 @@ daemon](https://github.com/zimixin/fingerprint-ocv).
 - Popup panel:
   - **Actions** — Register / Verify / Delete-all / Refresh (V/E/D/R hotkeys).
   - **Driver** — start / restart the `fingerprint-ocv` user service from the panel.
-  - **Registered list** — names of stored prints.
+  - **Registered list** — names of stored prints, each with a **✎ rename** button
+    (renames the stored template via D-Bus — no re-scan needed).
 - Actions launch in a floating terminal with **live progress** (enroll shows
   `Stage X/10 [██░░…] presses: N`, one carriage-return line).
+- **Verify reports which finger matched** (`Match found: primary`) — the
+  driver's `verify-match` signal now carries the matched print name.
 
 ## Screenshot
 
