@@ -13,7 +13,7 @@ daemon](https://github.com/zimixin/fingerprint-ocv).
   - **Driver** — start / restart the `fingerprint-ocv` user service from the panel.
   - **Registered list** — names of stored prints.
 - Actions launch in a floating terminal with **live progress** (enroll shows
-  `Этап X/10 [██░░…] нажатий N`, one carriage-return line).
+  `Stage X/10 [██░░…] presses: N`, one carriage-return line).
 
 ## Screenshot
 

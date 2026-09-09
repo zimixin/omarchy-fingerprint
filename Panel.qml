@@ -63,10 +63,10 @@ Panel {
     : root.urgent
 
   readonly property string stateLabel:
-    !root.ready ? "Драйвер не отвечает"
-    : !root.daemonUp ? "Драйвер не запущен"
-    : root.enrolled ? "Готов к проверке"
-    : "Отпечаток не записан"
+    !root.ready ? "Driver not responding"
+    : !root.daemonUp ? "Driver not running"
+    : root.enrolled ? "Ready to verify"
+    : "No fingerprint enrolled"
 
   FileView {
     id: statusView
@@ -126,12 +126,12 @@ Panel {
   function updatedText() {
     if (!root.ready) return ""
     var mins = Math.max(0, Math.round((root.nowMs - root.updatedMs) / 60000))
-    return (mins === 0 ? "только что" : mins + " мин назад") + (root.stale ? " · устарело" : "")
+    return (mins === 0 ? "just now" : mins + " min ago") + (root.stale ? " · stale" : "")
   }
 
   function humanName(n) {
     var s = String(n || "")
-    if (s === "primary") return "Основной отпечаток"
+    if (s === "primary") return "Primary print"
     return s
   }
 
@@ -260,9 +260,9 @@ Panel {
         PanelHero {
           id: hero
           width: parent.width
-          title: "Отпечаток пальца"
+          title: "Fingerprint reader"
           meta: root.ready ? root.stateLabel
-            : (root.driverBusy ? "перезапуск драйвера…" : "Драйвер не отвечает")
+            : (root.driverBusy ? "restarting driver…" : "Driver not responding")
           foreground: root.foreground
           fontFamily: root.fontFamily
 
@@ -310,7 +310,7 @@ Panel {
                 textFormat: Text.PlainText
                 id: countCap
                 width: parent.width
-                text: "ОТПЕЧАТКИ"
+                text: "PRINTS"
                 color: root.dim
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -325,7 +325,7 @@ Panel {
         // ---- Actions (first, always visible) ----
         PanelSectionHeader {
           width: parent.width
-          text: "ДЕЙСТВИЯ"
+          text: "ACTIONS"
           foreground: root.foreground
           fontFamily: root.fontFamily
         }
@@ -339,29 +339,29 @@ Panel {
 
           ActionButton {
             width: (gridActions.width - gridActions.columnSpacing) / 2
-            text: "Зарегистрировать"
-            sub: "записать отпечаток"
+            text: "Register"
+            sub: "enroll a print"
             run: "enroll"
           }
           ActionButton {
             width: (gridActions.width - gridActions.columnSpacing) / 2
-            text: "Проверить"
-            sub: "сверка с любым"
+            text: "Verify"
+            sub: "check a print"
             run: "verify"
             enabled: root.enrolled
           }
           ActionButton {
             width: (gridActions.width - gridActions.columnSpacing) / 2
-            text: "Удалить все"
-            sub: "стереть отпечатки"
+            text: "Delete all"
+            sub: "erase prints"
             run: "delete"
             enabled: root.enrolled
             danger: true
           }
           ActionButton {
             width: (gridActions.width - gridActions.columnSpacing) / 2
-            text: "Обновить"
-            sub: "R / ПКМ"
+            text: "Refresh"
+            sub: "R / right-click"
             run: "_refresh"
           }
         }
@@ -369,7 +369,7 @@ Panel {
         // ---- Driver ----
         PanelSectionHeader {
           width: parent.width
-          text: "ДРАЙВЕР"
+          text: "DRIVER"
           foreground: root.foreground
           fontFamily: root.fontFamily
         }
@@ -382,8 +382,8 @@ Panel {
           DriverTile {
             width: (driverRow.width - driverRow.spacing * 1) / 2
             active: root.daemonUp
-            label: root.daemonUp ? "Запущен" : "Остановлен"
-            sub: root.daemonUp ? "перезапустить" : "запустить"
+            label: root.daemonUp ? "Running" : "Stopped"
+            sub: root.daemonUp ? "restart" : "start"
           }
 
           Item {
@@ -400,7 +400,7 @@ Panel {
               Text {
                 textFormat: Text.PlainText
                 width: parent.width
-                text: "Сканер"
+                text: "Scanner"
                 color: root.dim
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -408,7 +408,7 @@ Panel {
               Text {
                 textFormat: Text.PlainText
                 width: parent.width
-                text: "press · 10 стадий"
+                text: "press · 10 stages"
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -421,7 +421,7 @@ Panel {
         Text {
           visible: root.ready && !root.enrolled && root.daemonUp
           width: parent.width
-          text: "Зарегистрируй палец: 10 касаний, ~1с держать, пауза ~2с."
+          text: "Enroll a finger: 10 taps, ~1s press, ~2s pause."
           color: root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
@@ -436,7 +436,7 @@ Panel {
 
           PanelSectionHeader {
             width: parent.width
-            text: "ЗАПИСАННЫЕ"
+            text: "REGISTERED"
             foreground: root.foreground
             fontFamily: root.fontFamily
           }
@@ -453,7 +453,7 @@ Panel {
           textFormat: Text.PlainText
           visible: root.ready
           width: parent.width
-          text: "обновлено " + root.updatedText()
+          text: "updated " + root.updatedText()
           color: root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
@@ -462,7 +462,7 @@ Panel {
         Text {
           textFormat: Text.PlainText
           width: parent.width
-          text: "ЛКМ — панель · R — обновить · V/E/D — проверить/записать/удалить · Esc — закрыть"
+          text: "L-click — panel · R — refresh · V/E/D — verify/register/delete · Esc — close"
           color: root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption

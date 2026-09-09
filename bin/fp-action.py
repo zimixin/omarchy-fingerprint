@@ -64,27 +64,23 @@ def _guard(what, fn):
         ename = e.get_dbus_name() or ""
         msg = e.get_dbus_message() or ""
         if "NoEnrolledPrints" in ename:
-            print("ОШИБКА: отпечаток не записан. Сначала нажми «Зарегистрировать».",
-                  flush=True)
+            print("ERROR: no print enrolled. Register one first.", flush=True)
         elif "NoActionInProgress" in ename:
-            print("ОШИБКА: прошлая операция ещё не завершена (повтори через секунду).",
-                  flush=True)
+            print("ERROR: previous operation still running (retry in a second).", flush=True)
         elif "AlreadyInUse" in ename:
-            print("ОШИБКА: датчик уже занят другой операцией.", flush=True)
+            print("ERROR: the sensor is busy with another operation.", flush=True)
         elif "Timeout" in ename or "timed out" in (msg or "").lower():
-            print("ОШИБКА: драйвер не отвечает. Перезапусти услугу fingerprint-ocv.",
-                  flush=True)
+            print("ERROR: driver not responding. Restart the fingerprint-ocv service.", flush=True)
         elif "ServiceUnknown" in ename or "NameHasNoOwner" in ename:
-            print("ОШИБКА: драйвер не запущен (нет шины net.reactivated.Fprint).",
-                  flush=True)
+            print("ERROR: driver not running (no net.reactivated.Fprint bus).", flush=True)
         else:
-            print("ОШИБКА: %s %s" % (ename, msg), flush=True)
+            print("ERROR: %s %s" % (ename, msg), flush=True)
         return False
     except dbus.exceptions.DBusException as e:
-        print("ОШИБКА: %s" % (e,), flush=True)
+        print("ERROR: %s" % (e,), flush=True)
         return False
     except Exception as e:
-        print("ОШИБКА: %s" % (e,), flush=True)
+        print("ERROR: %s" % (e,), flush=True)
         return False
     return True
 
@@ -119,7 +115,7 @@ def cmd_status(obj):
 def _run_scan(obj, kind, name):
     i = iface(obj)
     if not _claim(obj):
-        print("CLAIM_FAILED — не могу взять датчик.", flush=True)
+        print("CLAIM_FAILED — cannot claim the sensor.", flush=True)
         return 1
     if kind == "verify":
         try:
@@ -127,7 +123,7 @@ def _run_scan(obj, kind, name):
         except Exception:
             enrolled = []
         if not enrolled:
-            print("Отпечаток не записан — сначала нажми «Зарегистрировать».", flush=True)
+            print("No print enrolled — register one first.", flush=True)
             return 1
     TOT = 10  # num-enroll-stages
     loop = GLib.MainLoop()
@@ -139,8 +135,8 @@ def _run_scan(obj, kind, name):
         f = int(round(bar_w * s / TOT))
         bar = "█" * f + "░" * (bar_w - f)
         if kind == "enroll":
-            return "\rЭтап %d/%d  [%s]   нажатий: %d" % (s, TOT, bar, status["presses"])
-        return "\rПроверка…  нажатий: %d" % status["presses"]
+            return "\rStage %d/%d  [%s]   presses: %d" % (s, TOT, bar, status["presses"])
+        return "\rVerifying…  presses: %d" % status["presses"]
 
     def paint():
         print(render(), end="", flush=True)
@@ -150,7 +146,7 @@ def _run_scan(obj, kind, name):
         if kind == "enroll":
             if s.startswith("enroll-completed"):
                 status["result"] = "completed"; status["done"] = True
-                print("\nГотово: отпечаток «%s» записан." % name, flush=True)
+                print("\nDone: print «%s» recorded." % name, flush=True)
                 loop.quit()
             elif s.startswith("enroll-stage-passed"):
                 status["stage"] = status["stage"] + 1
@@ -162,19 +158,19 @@ def _run_scan(obj, kind, name):
             status["presses"] = status["presses"] + 1
             if s.startswith("verify-match"):
                 status["result"] = "match"; status["done"] = True
-                print("\nСовпадение найдено.", flush=True); loop.quit()
+                print("\nMatch found.", flush=True); loop.quit()
             elif s.startswith("verify-"):
                 if s.startswith("verify-retry"):
                     paint()
     try:
         i.connect_to_signal("EnrollStatus" if kind == "enroll" else "VerifyStatus", emit)
     except Exception as e:
-        print("ОШИБКА подписки: %s" % e, flush=True)
+        print("ERROR subscribing to signals: %s" % e, flush=True)
     Thread(target=loop.run, daemon=True).start()
 
-    print(("Запись «%s». Коснись датчика: палец ~1с держать, отпустить, пауза ~2с, повторять." % name)
+    print(("Recording «%s». Touch the sensor: press ~1s, lift, pause ~2s, repeat." % name)
           if kind == "enroll" else
-          "Проверка. Коснись датчика любым записанным пальцем.", flush=True)
+          "Verify. Touch the sensor with any enrolled finger.", flush=True)
     ok = _guard(kind, lambda: (i.EnrollStart(name) if kind == "enroll" else i.VerifyStart(name)))
     if not ok:
         print("", flush=True)
@@ -183,7 +179,7 @@ def _run_scan(obj, kind, name):
     while time.time() - t0 < 120 and not status["done"]:
         time.sleep(0.25)
     if not status["done"]:
-        print("\nТаймаут 120с — прервано.", flush=True)
+        print("\nTimeout 120s — aborted.", flush=True)
         status["result"] = "timeout"
     _stop(obj)
     print("\nEND", flush=True)
@@ -234,8 +230,8 @@ def main():
         return cmd_delete(obj)
     if cmd in ("-h", "--help"):
         print("usage: fp-action.py status|enroll[ NAME]|verify[ NAME]|delete")
-        print("  enroll  NAME   записать отпечаток под именем NAME (по умолч. primary)")
-        print("  verify  NAME   проверить NAME (по умолч. any — любой отпечаток)")
+        print("  enroll  NAME   record a print as NAME (default primary)")
+        print("  verify  NAME   verify NAME (default any — any enrolled print)")
         return 0
     print("unknown command: %s" % cmd)
     return 2
@@ -244,5 +240,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except dbus.exceptions.DBusException as e:
-        print("ОШИБКА подключения к драйверу: %s" % e, flush=True)
+        print("ERROR connecting to the driver: %s" % e, flush=True)
         sys.exit(1)
