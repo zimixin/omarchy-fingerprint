@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""fp-pam-verify — pam_exec gate that verifies a fingerprint against the
+fingerprint-ocv driver on THIS user's session bus.
+
+Talks directly to /net/reactivated/Device/0 (net.reactivated.Fprint, session
+bus, /run/user/<uid>/bus). This bypasses system-bus fprintd, which cannot see
+our driver. Exit 0 = fingerprint matched an enrolled print.
+
+Usage:
+  fp-pam-verify [--bus=unix:path=/run/user/1000/bus] [--user=zimixin]
+As a pam_exec gate:  pam_exec.so /usr/bin/fp-pam-verify
+
+Companion mode: fp-pam-verify --list  prints 'N finger(s)' when at least one
+print is enrolled (used to fake the fprintd-list gate in the omarchy lock
+screen without depending on system fprintd), exit 0 on match.
+"""
+import argparse, sys, time, threading
+import dbus
+import dbus.mainloop.glib
+from gi.repository import GLib
+
+# REQUIRED: without setting the GLib mainloop as default, dbus-python signal
+# delivery is not wired into GLib.MainLoop and VerifyStatus events are lost,
+# so loop.run() hangs for the whole timeout. (The omarchy widget sets this.)
+dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+DEV = "/net/reactivated/Device/0"
+IFACE = "net.reactivated.Fprint.Device"
+
+
+def _connect(bus_addr):
+    return dbus.bus.BusConnection(bus_addr)
+
+
+def _iface(b):
+    return dbus.Interface(b.get_object("net.reactivated.Fprint", DEV), IFACE)
+
+
+def enrolled(b, user):
+    try:
+        return [str(x) for x in _iface(b).ListEnrolledFingers(user) if x]
+    except Exception:
+        return []
+
+
+def verify_interactive(b, user, timeout=30):
+    i = _iface(b)
+    # Claim registers us as the client (NOT a scan).
+    try:
+        i.Claim(user)
+    except Exception:
+        pass
+    loop = GLib.MainLoop()
+    result = {"match": False, "timeout": True}
+
+    def on_status(sig, ok):
+        s = str(sig or "")
+        if s.startswith("verify-match"):
+            result["match"] = True
+            result["timeout"] = False
+            loop.quit()
+        # other verify-* events mean "retry, keep waiting"
+
+    try:
+        i.connect_to_signal("VerifyStatus", on_status)
+    except Exception:
+        pass
+    GLib.timeout_add_seconds(int(timeout), lambda: (loop.quit(), False)[1])
+
+    def runner():
+        # verify against ANY enrolled print ("any" == is_any()).
+        try:
+            i.VerifyStart("any")
+        except dbus.DBusException as e:
+            en = e.get_dbus_name() or ""
+            if "NoEnrolledPrints" in en:
+                print("fp-pam-verify: no enrolled print", flush=True)
+            else:
+                print("fp-pam-verify: error", en, flush=True)
+            loop.quit()
+
+    threading.Thread(target=runner, daemon=True).start()
+    loop.run()
+    try:
+        i.VerifyStop()
+    except Exception:
+        pass
+    return result["match"]
+
+
+def main():
+    ap = argparse.ArgumentParser(add_help=False)  # --help crashes some argparsers? no—we're python stdlib, fine
+    os = __import__("os")
+    pwd = __import__("pwd")
+    # In a pam_exec context we may be root; find the real user via PAM env or
+    # fall back through the runtime dir (the actual logged-in session user).
+    uid = os.getuid()
+    user = os.environ.get("PAM_USER") or os.environ.get("SUDO_USER") or os.environ.get("LOGNAME")
+    if user:
+        try:
+            uid = pwd.getpwnam(user).pw_uid
+        except KeyError:
+            pass
+    ap.add_argument("--bus", default="/run/user/%s/bus" % uid)
+    ap.add_argument("--user", default=user or pwd.getpwuid(uid).pw_name)
+    ap.add_argument("--list", action="store_true")
+    ap.add_argument("--help", action="store_true")
+    args, _ = ap.parse_known_args()
+
+    if args.help:
+        print(__doc__)
+        return 0
+
+    bus_addr = "unix:path=" + args.bus if not args.bus.startswith("unix:") else args.bus
+    b = _connect(bus_addr)
+    names = enrolled(b, args.user)
+
+    if args.list:
+        if names:
+            print("%d finger(s), %s" % (len(names), ", ".join(names)))
+            return 0
+        return 1
+
+    if not names:
+        print("fp-pam-verify: no enrolled print for %s" % args.user, flush=True)
+        return 1
+
+    ok = verify_interactive(b, args.user)
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

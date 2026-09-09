@@ -42,8 +42,34 @@ Then add it to the bar: edit `~/.config/omarchy/shell.json` →
 - `Panel.qml` — bar button + popup (Quickshell, `qs.Ui` components).
 - `bin/fp-status.sh` — status collector; writes
   `~/.local/state/omarchy/fingerprint/status.json` (keeps last-known on error).
-- `bin/fp-action.py` — `status|enroll|verify|delete` over D-Bus; auto-picks a
-  free print name on enroll, drives live progress output.
+- `bin/fp-pam-verify` — pam_exec gate for **fingerprint unlock**: verifies
+  directly against the session-bus driver, exit 0 on match; `--list` prints
+  enrolled prints (used to fake the `fprintd-list` gate in the lock screen).
+- `bin/fprintd-list` — wrapper that shadows `/usr/bin/fprintd-list` so the
+  lock screen detects the real session driver instead of system fprintd.
+- `pam/omarchy-lock-fingerprint` — reference PAM stack for the lock screen.
+
+## Fingerprint unlock (lock screen)
+
+The Omarchy lock screen has built-in fingerprint support
+(`Quickshell.Services.Pam`), but its stock path goes through system-bus
+`fprintd`, which cannot see this driver (it has no FPC 9201 driver and
+auto-activates a broken daemon → "No devices available"). Instead the unlock
+gate talks to the session driver directly:
+
+1. Install the bridge somewhere stable:
+   `sudo install -m 0755 bin/fp-pam-verify /usr/local/bin/fp-pam-verify`
+2. Shadow the lock screen's fingerprint gate so it detects the real driver
+   (must be earlier in PATH than `/usr/bin/fprintd-list`):
+   `sudo install -m 0755 bin/fprintd-list /usr/local/bin/fprintd-list`
+3. Install the PAM stack:
+   `sudo install -m 0644 pam/omarchy-lock-fingerprint /etc/pam.d/omarchy-lock-fingerprint`
+   — if you installed the bridge somewhere other than `/usr/local/bin`,
+   edit the path inside `fp-pam-verify`'s PAM line.
+
+The lock screen forks the PAM subprocess WITHOUT `setuid`, so the gate runs as
+the session user and reaches the session bus. **sudo / polkit unlock is not
+supported**: there the gate runs as root, which has no session-bus access.
 
 ## Notes
 

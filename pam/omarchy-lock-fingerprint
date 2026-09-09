@@ -1,0 +1,12 @@
+# Fingerprint unlock via fingerprint-ocv session driver (FPC 9201).
+# NOTE: standard pam_fprintd talks to system-bus fprintd, which has no driver
+# for the FPC 9201 and auto-activates a broken daemon on every call -> "No
+# devices available". This gate verifies directly against the user's session
+# fingerprint-ocv through fp-pam-verify (session-bus D-Bus).
+#
+# Install to /etc/pam.d/omarchy-lock-fingerprint, adjusting the bridge path.
+# The lock screen (Quickshell) forks WITHOUT setuid, so the gate runs as the
+# session user with session-bus access. sudo/polkit CANNOT use this: root has
+# no access to the user's session bus.
+auth       required                    pam_exec.so quiet /home/zimixin/.local/bin/fp-pam-verify
+account    include                     system-local-login

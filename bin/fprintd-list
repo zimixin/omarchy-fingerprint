@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Wrapper that shadows /usr/bin/fprintd-list for the Omarchy lock-screen gate.
+#
+# The real fprintd-list talks to system-bus fprintd, which cannot see the
+# session fingerprint-ocv driver (one call auto-activates the broken system
+# fprintd -> "No devices available"). The lock screen's gate evaluates
+#   fprintd-list "$USER" 2>/dev/null | grep -qi finger
+# so all we must do is exit 0 (and print a line containing "finger") when a
+# print is enrolled on the session driver.
+#
+# Install EARLIER in PATH than /usr/bin/fprintd-list, e.g.:
+#   sudo install -m 0755 bin/fprintd-list /usr/local/bin/fprintd-list
+BIN="${FP_PAM_VERIFY_BIN:-/usr/local/bin/fp-pam-verify}"
+
+exec "$BIN" --list "$@"
