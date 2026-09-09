@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "zimixin.fingerprint",
+  "name": "Fingerprint",
+  "version": "1.0.0",
+  "author": "zimixin",
+  "license": "MIT",
+  "description": "Fingerprint reader status and control for the fingerprint-ocv daemon (FPC 9201). Shows enrolled status, lets you enroll/verify/delete via D-Bus.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Fingerprint",
+    "description": "FPC 9201 fingerprint status, enrollment and verification.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
