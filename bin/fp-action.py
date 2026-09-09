@@ -158,7 +158,9 @@ def _run_scan(obj, kind, name):
             status["presses"] = status["presses"] + 1
             if s.startswith("verify-match"):
                 status["result"] = "match"; status["done"] = True
-                print("\nMatch found.", flush=True); loop.quit()
+                matched = s[len("verify-match"):]  # driver adds ":<name>" when patched
+                label = (" (%s)" % matched) if matched else ""
+                print("\nMatch found.%s" % label, flush=True); loop.quit()
             elif s.startswith("verify-"):
                 if s.startswith("verify-retry"):
                     paint()
@@ -215,6 +217,56 @@ def cmd_delete(obj):
         pass
     return 0
 
+def cmd_rename(obj, old_name, new_name):
+    """Rename an enrolled print (no re-scan needed — template is moved in
+    storage). Mirrors delete: rename applies to the claimed user."""
+    if not _claim(obj):
+        print("CLAIM_FAILED — cannot claim the sensor.", flush=True)
+        return 1
+    try:
+        iface(obj).RenameFinger(old_name, new_name)
+        print("RENAMED %s -> %s" % (old_name, new_name), flush=True)
+        return 0
+    except dbus.DBusException as e:
+        ename = e.get_dbus_name() or ""
+        msg = e.get_dbus_message() or ""
+        if "InvalidFingername" in ename:
+            print("ERROR: %s" % msg, flush=True)
+        elif "NoActionInProgress" in ename:
+            print("ERROR: previous operation still running (retry in a second).", flush=True)
+        else:
+            print("ERROR: %s %s" % (ename, msg), flush=True)
+        return 1
+    except Exception as e:
+        print("ERROR: %s" % e, flush=True)
+        return 1
+
+def cmd_rename_interactive(obj, old_name):
+    """Prompt for the new name in the terminal, then rename. Reads from stdin
+    so the new name never goes through the shell command line."""
+    i = iface(obj)
+    try:
+        existing = set(str(x) for x in i.ListEnrolledFingers(USER))
+    except Exception:
+        existing = set()
+    print("Rename «%s»" % old_name)
+    while True:
+        sys.stdout.write("New name: ")
+        sys.stdout.flush()
+        try:
+            new_name = sys.stdin.readline().strip()
+        except KeyboardInterrupt:
+            print("\nABORTED", flush=True)
+            return 1
+        if not new_name:
+            print("Name can't be empty.", flush=True)
+            continue
+        if new_name in existing and new_name != old_name:
+            print("Already in use: %s. Pick another." % new_name, flush=True)
+            continue
+        break
+    return cmd_rename(obj, old_name, new_name)
+
 def main():
     obj = bus_obj()
     args = sys.argv[1:]
@@ -228,6 +280,16 @@ def main():
         return _run_scan(obj, cmd, name)
     if cmd == "delete":
         return cmd_delete(obj)
+    if cmd == "rename":
+        if len(args) < 3:
+            print("usage: fp-action.py rename OLD NEW", flush=True)
+            return 2
+        return cmd_rename(obj, args[1], args[2])
+    if cmd == "rename-interactive":
+        if len(args) < 2:
+            print("usage: fp-action.py rename-interactive OLD", flush=True)
+            return 2
+        return cmd_rename_interactive(obj, args[1])
     if cmd in ("-h", "--help"):
         print("usage: fp-action.py status|enroll[ NAME]|verify[ NAME]|delete")
         print("  enroll  NAME   record a print as NAME (default primary)")

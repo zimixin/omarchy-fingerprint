@@ -143,6 +143,15 @@ Panel {
     }
   }
 
+  // Rename an enrolled print from the UI: opens a floating terminal that
+  // prompts for the new name, then renames the stored template (no re-scan).
+  function renameFinger(name) {
+    root.close()
+    if (root.bar) {
+      root.bar.run('omarchy-launch-floating-terminal-with-presentation "' + root.action + " rename-interactive '" + name + "'\"")
+    }
+  }
+
   // Driver control (systemd --user). Runs start|stop, then refreshes status.
   function runDriver(cmd) {
     if (root.driverBusy || !root.bar) return
@@ -479,6 +488,34 @@ Panel {
 
     implicitHeight: Math.max(fingerName.implicitHeight, Style.space(20))
 
+    // Rename affordance (right). Fixed width so the name hugs its left edge.
+    Item {
+      id: renameBtn
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(2)
+      anchors.verticalCenter: parent.verticalCenter
+      implicitWidth: Style.space(24)
+      implicitHeight: Style.space(20)
+
+      Text {
+        textFormat: Text.PlainText
+        anchors.centerIn: parent
+        text: "✎"
+        color: root.accent
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+        font.bold: true
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        acceptedButtons: Qt.LeftButton
+        onClicked: root.renameFinger(fingerRow.name)
+      }
+    }
+
     Text {
       textFormat: Text.PlainText
       text: "✓"
@@ -496,8 +533,8 @@ Panel {
       text: root.humanName(fingerRow.name)
       anchors.left: parent.left
       anchors.leftMargin: Style.space(20)
-      anchors.right: parent.right
-      anchors.rightMargin: Style.space(2)
+      anchors.right: renameBtn.left
+      anchors.rightMargin: Style.space(4)
       anchors.verticalCenter: parent.verticalCenter
       color: root.foreground
       font.family: root.fontFamily
